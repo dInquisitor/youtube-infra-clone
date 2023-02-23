@@ -1,4 +1,0 @@
-k8s_yaml('./k8s-dev-env.yaml')
-
-docker_build('dinquisitor/video-uploader-api-server', '.',  dockerfile='Dockerfile')
-k8s_yaml('./k8s/full_deployment.yaml')
