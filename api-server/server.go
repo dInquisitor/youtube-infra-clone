@@ -21,6 +21,9 @@ import (
 // Might use echo context to pass around db connection singleton in the future, same goes with session and redis
 // User should only be able to upload a video at once? so that people can't spam database with begin-upload requests without actually uploading anything
 // Wrapper library to reconnect to kafka for the producer side (maybe the consumer side?)
+// make video database closely track actual video files
+// Is video ready for streaming?
+// Use env vars for service names and ports
 
 // TODO:
 // Bind expect input on every endpoint: https://echo.labstack.com/guide/binding/

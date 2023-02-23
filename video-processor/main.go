@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -50,6 +51,7 @@ func main() {
 }
 
 func processVideo(videoID string) {
+	// uncomment to generate videos with other resolutions, machine should have large memory or this will fail
 	resolutions := map[string][2]string{
 		// height, width and bit rate
 		"480": {"640", "250k"},
@@ -58,23 +60,23 @@ func processVideo(videoID string) {
 		// "2160": {"3840", "1500k"},
 	}
 
-	// originalFilePath, err := getAbsPath(videoID, "original")
+	originalFilePath, err := getAbsPath(videoID, "original")
 
-	// if err != nil {
-	// 	return
-	// }
+	if err != nil {
+		return
+	}
 
-	// var wg sync.WaitGroup
-	// // process all resolutions and audio stream in parallel
-	// wg.Add(len(resolutions) + 1)
+	var wg sync.WaitGroup
+	// process all resolutions and audio stream in parallel
+	wg.Add(len(resolutions) + 1)
 
-	// go makeAudio(originalFilePath, videoID)
+	go makeAudio(originalFilePath, videoID)
 
-	// for height, details := range resolutions {
-	// 	go makeVideoWithResolution(originalFilePath, videoID, details[0], height, details[1])
-	// }
+	for height, details := range resolutions {
+		go makeVideoWithResolution(originalFilePath, videoID, details[0], height, details[1])
+	}
 
-	// wg.Wait()
+	wg.Wait()
 
 	// generate manifest after generating audio and video
 	makeManifest(resolutions, videoID)

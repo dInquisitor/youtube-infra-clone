@@ -66,15 +66,13 @@ func BeginUpload(c echo.Context, dbPool *sql.DB, redisHandle *redis.Client) erro
 }
 
 func createVideo(userID string, dbPool *sql.DB) (videoID string, err error) {
-	// insertVideoResult := dbPool.QueryRow("insert into videos(author_id) values($1) returning id", userID)
+	insertVideoResult := dbPool.QueryRow("insert into videos(author_id) values($1) returning id", userID)
 
-	// err = insertVideoResult.Scan(&videoID)
+	err = insertVideoResult.Scan(&videoID)
 
-	// if err != nil {
-	// 	return "", err
-	// }
+	if err != nil {
+		return "", err
+	}
 
-	const DUMMY_VIDEO_ID = "9fdb5aa2-5540-469e-8eb0-c0932980784f"
-
-	return DUMMY_VIDEO_ID, nil
+	return videoID, nil
 }

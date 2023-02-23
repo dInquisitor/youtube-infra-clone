@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"upload-service/middlewares"
 
@@ -42,11 +44,11 @@ func main() {
 	defer sessionHandler.Close()
 
 	// Init redis connection for other uses
-	// redisHandle := redis.NewClient(&redis.Options{
-	// 	Addr:     "redis:6379",
-	// 	Password: "", // no password set
-	// 	DB:       0,  // use default DB
-	// })
+	redisHandle := redis.NewClient(&redis.Options{
+		Addr:     "redis:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
 
 	// Init kafka
 	kafkaWriter := &kafka.Writer{
@@ -72,14 +74,13 @@ func main() {
 		})
 
 		inputVideoID := c.FormValue("videoID")
-		// inputVideoID := "bc7cda5e-8d60-4fba-8884-8865d4b3eded"
 
-		// userID := c.Get("authContext").(*middlewares.AuthContext).UserID
+		userID := c.Get("authContext").(*middlewares.AuthContext).UserID
 
-		// if err := confirmUploadAccess(inputVideoID, userID, redisHandle); err != nil {
-		// 	log.Println("User does not have upload access", err)
-		// 	return unknownErrorResponse
-		// }
+		if err := confirmUploadAccess(inputVideoID, userID, redisHandle); err != nil {
+			log.Println("User does not have upload access", err)
+			return unknownErrorResponse
+		}
 
 		// Source
 		file, err := c.FormFile("videoFile")
@@ -95,33 +96,32 @@ func main() {
 		}
 		defer src.Close()
 
-		// rm this
-		// if err = os.Mkdir(fmt.Sprintf("%s/%s/", VIDEO_DIRECTORY, inputVideoID), os.ModePerm); err != nil {
-		// 	log.Println("Could not make directory for video", err)
-		// 	return unknownErrorResponse
-		// }
+		if err = os.Mkdir(fmt.Sprintf("%s/%s/", VIDEO_DIRECTORY, inputVideoID), os.ModePerm); err != nil {
+			log.Println("Could not make directory for video", err)
+			return unknownErrorResponse
+		}
 
-		_, err = filepath.Abs(fmt.Sprintf("%s/%s/original", VIDEO_DIRECTORY, inputVideoID))
+		destFilePath, err := filepath.Abs(fmt.Sprintf("%s/%s/original", VIDEO_DIRECTORY, inputVideoID))
 		if err != nil {
 			log.Println("Could not expand destination file path", err)
 			return unknownErrorResponse
 		}
 
 		// Destination
-		// dst, err := os.Create(destFilePath)
-		// if err != nil {
-		// 	log.Println("Could not open destination for writing", err)
-		// 	return unknownErrorResponse
-		// }
-		// defer dst.Close()
+		dst, err := os.Create(destFilePath)
+		if err != nil {
+			log.Println("Could not open destination for writing", err)
+			return unknownErrorResponse
+		}
+		defer dst.Close()
 
 		log.Println("Uploading...")
 
 		// Copy
-		// if _, err = io.Copy(dst, src); err != nil {
-		// 	log.Println("Could not copy uploaded file to destination", err)
-		// 	return unknownErrorResponse
-		// }
+		if _, err = io.Copy(dst, src); err != nil {
+			log.Println("Could not copy uploaded file to destination", err)
+			return unknownErrorResponse
+		}
 
 		err = notifyVideoProcessingWorkers(inputVideoID, kafkaWriter)
 
