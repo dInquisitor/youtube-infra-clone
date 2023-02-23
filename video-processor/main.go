@@ -70,10 +70,10 @@ func processVideo(videoID string) {
 	// process all resolutions and audio stream in parallel
 	wg.Add(len(resolutions) + 1)
 
-	go makeAudio(originalFilePath, videoID)
+	go makeAudio(originalFilePath, videoID, &wg)
 
 	for height, details := range resolutions {
-		go makeVideoWithResolution(originalFilePath, videoID, details[0], height, details[1])
+		go makeVideoWithResolution(originalFilePath, videoID, details[0], height, details[1], &wg)
 	}
 
 	wg.Wait()
@@ -127,10 +127,11 @@ func makeManifest(resolutions map[string][2]string, videoID string) {
 	log.Println(arguments)
 	log.Println(strings.Join(arguments, ","))
 
+	fmt.Printf("making manifest")
 	runFFmpeg(arguments)
 }
 
-func makeAudio(originalFilePath, videoID string) {
+func makeAudio(originalFilePath, videoID string, wg *sync.WaitGroup) {
 	audioFilePath, err := getAbsPath(videoID, "audio.webm")
 
 	if err != nil {
@@ -139,15 +140,17 @@ func makeAudio(originalFilePath, videoID string) {
 
 	// ffmpeg -i original -vn -acodec libvorbis -ab 128k -dash 1 audio.webm
 	runFFmpeg([]string{"-i", originalFilePath, "-vn", "-acodec", "libvorbis", "-ab", "128k", "-dash", "1", "-y", audioFilePath})
+	wg.Done()
 }
 
-func makeVideoWithResolution(originalFilePath, videoID, width, height, bitRate string) {
+func makeVideoWithResolution(originalFilePath, videoID, width, height, bitRate string, wg *sync.WaitGroup) {
 	destinationFilePath, err := getAbsPath(videoID, fmt.Sprintf("%s.webm", height))
 	if err != nil {
 		return
 	}
 
 	runFFmpeg([]string{"-i", originalFilePath, "-c:v", "libvpx-vp9", "-keyint_min", "150", "-g", "150", "-tile-columns", "4", "-frame-parallel", "1", "-f", "webm", "-dash", "1", "-an", "-vf", fmt.Sprintf("scale=%s:%s", width, height), "-b:v", bitRate, "-dash", "1", "-y", destinationFilePath})
+	wg.Done()
 }
 
 func runFFmpeg(arguments []string) {
