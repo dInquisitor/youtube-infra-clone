@@ -1,0 +1,102 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  redis:
+    image: redis
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+  api-gateway:
+    build: ./api-gateway
+    volumes:
+      - ./api-gateway:/api-gateway/app
+    ports:
+      - "4100:4100"
+  api-server:
+    build: ./api-server
+    volumes:
+      - ./api-server:/api-server/app
+    ports:
+      - "4000:4000"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+  upload-service:
+    build: ./upload-service
+    volumes:
+      - ./upload-service:/upload-service/app
+      - ./video-store:/upload-service/data/video-store
+    ports:
+      - "5000:5000"
+    depends_on:
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+  video-processor:
+    build: ./video-processor
+    volumes:
+      - ./video-processor:/video-processor/app
+      - ./video-store:/video-processor/data/video-store
+    depends_on:
+      kafka:
+        condition: service_healthy
+  stream-service:
+    build: ./stream-service
+    volumes:
+      - ./stream-service:/stream-service/app
+      - ./video-store:/stream-service/data/video-store
+    ports:
+      - "7000:7000"
+  frontend:
+    build: ./frontend
+    volumes:
+      - ./frontend:/frontend/app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+  # -- kafka
+  zookeeper:
+    image: docker.io/bitnami/zookeeper:3.8
+    ports:
+      - "2181:2181"
+    volumes:
+      - "zookeeper-data:/bitnami"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+  kafka:
+    image: docker.io/bitnami/kafka:2.7.0
+    ports:
+      - "9092:9092"
+    volumes:
+      - "kafka-data:/bitnami"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: "echo exit | curl -sSf telnet://localhost:9092 || exit 1"
+      start_period: 15s
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  redis-data:
+  postgres-data:
+  zookeeper-data:
+  kafka-data:
